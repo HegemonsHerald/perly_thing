@@ -2,12 +2,12 @@
 
 use strict;
 use warnings;
-use 5.010;
+use 5.010;	# for experimental given-where syntax
 
 # get sections and items to match against
 open(my $ini_fd, "<", "sections.ini") or die "couldn't read ini";
 
-# get data
+# get data (csv-files)
 open(my $data_fd, "<", "test.csv")    or die "couldn't read data";
 my @data = <$data_fd>;
 
@@ -15,33 +15,40 @@ my @data = <$data_fd>;
 my %data_struct = ();
 my $current_section = "Data";
 
+# read section file
 foreach (<$ini_fd>) {
 
-  # match
+  # match line from section file
   given($_) {
   
     # if line empty
-    when(/\S/) {
-      next;
+    when(/^\s*$/) {
+      next;	# skip!
     }
 
-    # if section header
+    # if line is EMPTY section header
+    when(/\[\]/)  {
+      $current_section = "Data";  # empty means default
+      next;	# then skip!
+    }
+
+    # if line is section header
     when(/\[(.*)\]/)  {
 
-      # add to hash
+      # add section to hash
       $data_struct{$1} = [];
 
-      # set current section
+      # set current section for adding items
       $current_section = $1;
     }
     
-    # if item that is to be matched
+    # if line is item, that is to be found in data
     when(/(.+)/)      {
       my $item = $1;
 
-      # get rid of potential newlines, cause that screws everything up!
-      $item =~ s/\n//;
-      $item =~ s/\r//;
+      # get rid of potential newlines, cause they screw up everything!
+      $item =~ s/\n//g;
+      $item =~ s/\r//g;
 
       # match data against item
       foreach (@data) {
@@ -49,20 +56,23 @@ foreach (<$ini_fd>) {
 
           # if item is found in the data
           when(/$item+/) {
-            # append to file structure
+
+            # append it to the section in the hash
             push @{ $data_struct{$current_section} }, $_;
+
           }
 
           # if item isn't found, do nothing
           default {}
         }
       }
-
     }
     default {}
   }
 }
 
+
+# make output file for each section in the hash
 foreach (keys %data_struct) {
 
   # create file
@@ -70,12 +80,13 @@ foreach (keys %data_struct) {
 
   # print output to file
   foreach (@{ $data_struct{$_} }) {
-          print $output_fd "$_\n";
+          print $output_fd "$_";
   }
 
-  # close fd
+  # close FD
   close $output_fd  or die "couldn't close output fd";
 }
 
+# clean up remaining FDs, for good measure
 close $ini_fd       or die "couldn't close fd";
 close $data_fd      or die "couldn't close fd";
