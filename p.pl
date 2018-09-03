@@ -20,6 +20,11 @@ foreach (<$ini_fd>) {
   # match
   given($_) {
   
+    # if line empty
+    when(/\S/) {
+      next;
+    }
+
     # if section header
     when(/\[(.*)\]/)  {
 
@@ -34,14 +39,18 @@ foreach (<$ini_fd>) {
     when(/(.+)/)      {
       my $item = $1;
 
+      # get rid of potential newlines, cause that screws everything up!
+      $item =~ s/\n//;
+      $item =~ s/\r//;
+
       # match data against item
       foreach (@data) {
         given($_) {
 
           # if item is found in the data
-          when(/(.*$item.*)/) {
+          when(/$item+/) {
             # append to file structure
-            push @{ $data_struct{$current_section} }, $1;
+            push @{ $data_struct{$current_section} }, $_;
           }
 
           # if item isn't found, do nothing
